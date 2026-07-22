@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String        @id @default(uuid())
+  email            String        @unique
+  password         String
+  username         String        @unique
+  role             Role          @default(USER)
+  isSuspended      Boolean       @default(false)
+  suspensionReason String?
+  suspensionUntil  DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  games            Game[]        @relation("UserGames")
+  votes            Vote[]
+  comments         Comment[]
+  subscription     Subscription?
+
+  @@map("users")
+}
+
+model Game {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  platform    String
+  genre       String    // Este campo se valida contra Category.name
+  releaseDate DateTime?
+  rating      Float?
+  coverUrl    String?
+  images      String[]  @default([])
+  votes       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String
+  user        User      @relation("UserGames", fields: [userId], references: [id], onDelete: Cascade)
+  gameVotes   Vote[]
+  comments    Comment[]
+  category    Category? @relation(fields: [genre], references: [name])
+
+  @@map("games")
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  userId    String
+  gameId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+  @@map("votes")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  userId    String
+  gameId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Subscription {
+  id        String           @id @default(uuid())
+  userId    String           @unique
+  plan      SubscriptionPlan @default(FREE)
+  startDate DateTime         @default(now())
+  endDate   DateTime?
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ✅ Planes de Suscripción personalizados (Admin puede crear/editar)
+model Plan {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  price       Float
+  features    String[]
+  description String?
+  color       String   @default("#6366f1")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("plans")
+}
+
+// ✅ Categorías (Admin puede crear/editar)
+model Category {
+  name      String   @id
+  icon      String?
+  color     String   @default("#6366f1")
+  gameCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  games     Game[]
+
+  @@map("categories")
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PREMIUM
+  VIP
+}
+
+enum Role {
+  USER
+  ADMIN
+}
