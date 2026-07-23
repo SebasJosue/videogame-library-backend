@@ -6,7 +6,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
-
 @Controller('games')
 export class GamesController {
   constructor(private readonly gamesService: GamesService) {}
@@ -17,12 +16,12 @@ export class GamesController {
     return this.gamesService.create(createGameDto, req.user.id);
   }
 
+  // ✅ RECIBE EL PARÁMETRO 'genre' Y SE LO PASA AL SERVICIO
   @Get()
-  findAll(@Query('userId') userId?: string) {
-    return this.gamesService.findAll(userId);
+  findAll(@Query('userId') userId?: string, @Query('genre') genre?: string) {
+    return this.gamesService.findAll(userId, genre);
   }
 
-  // Actualizado para pasar el ID del usuario si está logueado
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
     const currentUserId = req.user?.id;
@@ -48,7 +47,6 @@ export class GamesController {
     return this.gamesService.adminDeleteGame(id);
   }
 
-  // ✅ NUEVO ENDPOINT: Votar un juego (Solo usuarios logueados)
   @Post(':id/vote')
   @UseGuards(JwtAuthGuard)
   vote(@Param('id') id: string, @Request() req) {

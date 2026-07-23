@@ -7,21 +7,33 @@ export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
   async getAllCategories() {
-    return this.prisma.category.findMany({
+    const categories = await this.prisma.category.findMany({
       include: {
-        _count: { select: { games: true } },
+        _count: { 
+          select: { 
+            games: true 
+          } 
+        },
       },
       orderBy: { name: 'asc' },
     });
+
+    // ✅ Mapear para que el frontend reciba gameCount correctamente
+    return categories.map(cat => ({
+      name: cat.name,
+      icon: cat.icon,
+      color: cat.color,
+      gameCount: cat._count.games, // ✅ Aquí está la clave
+    }));
   }
 
   async createCategory(data: CreateCategoryDto) {
-    return this.prisma.category.create({ 
+    return this.prisma.category.create({
       data: {
         name: data.name,
         icon: data.icon,
         color: data.color || '#6366f1',
-      } 
+      },
     });
   }
 
@@ -39,18 +51,30 @@ export class CategoriesService {
     const category = await this.prisma.category.findUnique({ where: { name } });
     if (!category) throw new NotFoundException('Categoría no encontrada');
     
-    return this.prisma.category.delete({ where: { name } });
+    return this.prisma.category.delete({
+      where: { name },
+    });
   }
 
   async getCategoryByName(name: string) {
     const category = await this.prisma.category.findUnique({
       where: { name },
       include: {
-        _count: { select: { games: true } },
+        _count: { 
+          select: { 
+            games: true 
+          } 
+        },
       },
     });
     
     if (!category) throw new NotFoundException('Categoría no encontrada');
-    return category;
+    
+    return {
+      name: category.name,
+      icon: category.icon,
+      color: category.color,
+      gameCount: category._count.games,
+    };
   }
 }

@@ -73,15 +73,16 @@ model Comment {
 }
 
 model Subscription {
-  id        String           @id @default(uuid())
-  userId    String           @unique
-  plan      SubscriptionPlan @default(FREE)
-  startDate DateTime         @default(now())
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  // ✅ CORRECCIÓN: Cambiado de 'SubscriptionPlan' a 'String' para aceptar planes personalizados
+  plan      String   @default("FREE")
+  startDate DateTime @default(now())
   endDate   DateTime?
-  isActive  Boolean          @default(true)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
 }
@@ -115,6 +116,7 @@ model Category {
   @@map("categories")
 }
 
+// Este enum ya no se usa en Subscription, pero se mantiene por compatibilidad si lo usas en otro lado
 enum SubscriptionPlan {
   FREE
   BASIC
