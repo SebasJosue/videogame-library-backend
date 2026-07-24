@@ -19,6 +19,60 @@ export class SubscriptionService {
     this.stripe = new Stripe(secretKey, {
       apiVersion: '2023-10-16' as any, 
     });
+
+    // ✅ CREAR PLANES POR DEFECTO EN LA BASE DE DATOS
+    this.seedDefaultPlans();
+  }
+
+  // ✅ SEMBRAR PLANES POR DEFECTO
+  async seedDefaultPlans() {
+    const defaultPlans = [
+      {
+        name: 'FREE',
+        displayName: 'FREE',
+        price: 0,
+        features: ['Ver juegos', 'Votar reseñas', 'Comentar', 'Publicar reseñas', 'Subir imágenes'],
+        description: 'Plan gratuito básico',
+        color: '#6b7280',
+      },
+      {
+        name: 'BASIC',
+        displayName: 'BASIC',
+        price: 4.99,
+        features: ['Todo lo de FREE', 'Publicar reseñas (3/mes)', 'Subir imágenes', 'Estadísticas'],
+        description: 'Plan básico para usuarios regulares',
+        color: '#2563eb',
+      },
+      {
+        name: 'PREMIUM',
+        displayName: 'PREMIUM',
+        price: 9.99,
+        features: ['Todo lo de BASIC', 'Publicar reseñas ilimitadas', 'Subir imágenes (10/reseña)', 'Estadísticas básicas'],
+        description: 'Plan premium para usuarios avanzados',
+        color: '#9333ea',
+      },
+      {
+        name: 'VIP',
+        displayName: 'VIP',
+        price: 19.99,
+        features: ['Todo lo de PREMIUM', 'Imágenes ilimitadas', 'Estadísticas avanzadas', 'Soporte prioritario 24/7', 'Experiencia sin anuncios'],
+        description: 'Plan VIP para usuarios premium',
+        color: '#eab308',
+      },
+    ];
+
+    try {
+      for (const plan of defaultPlans) {
+        await this.prisma.plan.upsert({
+          where: { name: plan.name },
+          update: plan,
+          create: plan,
+        });
+      }
+      console.log('✅ Planes por defecto creados/actualizados en la BD');
+    } catch (error) {
+      console.error('❌ Error al sembrar planes por defecto:', error);
+    }
   }
 
   async getUserSubscription(userId: string) {
@@ -38,14 +92,13 @@ export class SubscriptionService {
     return subscription;
   }
 
-  // ✅ NUEVO: Obtener todos los planes personalizados
+  // ✅ AHORA SOLO OBTIENE PLANES DE LA BASE DE DATOS
   async getAllPlans() {
     return this.prisma.plan.findMany({
       orderBy: { price: 'asc' },
     });
   }
 
-  // ✅ NUEVO: Crear plan personalizado
   async createPlan(data: {
     name: string;
     displayName: string;
@@ -67,7 +120,6 @@ export class SubscriptionService {
     });
   }
 
-  // ✅ NUEVO: Actualizar plan
   async updatePlan(id: string, data: any) {
     return this.prisma.plan.update({
       where: { id },
@@ -75,14 +127,13 @@ export class SubscriptionService {
     });
   }
 
-  // ✅ NUEVO: Eliminar plan
   async deletePlan(id: string) {
     return this.prisma.plan.delete({
       where: { id },
     });
   }
 
-  async upgradePlan(userId: string, plan: 'BASIC' | 'PREMIUM' | 'VIP') {
+  async upgradePlan(userId: string, plan: string) {
     const subscription = await this.getUserSubscription(userId);
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + 1);
@@ -90,7 +141,7 @@ export class SubscriptionService {
     return this.prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        plan,
+        plan: plan.toUpperCase() as any,
         endDate,
         isActive: true,
       },
@@ -119,7 +170,9 @@ export class SubscriptionService {
       VIP: ['view_games', 'vote', 'comment', 'publish_reviews', 'upload_images', 'analytics', 'priority_support', 'ad_free'],
     };
 
-    return permissions[plan]?.includes(feature) || false;
+    const userPermissions = permissions[plan] || permissions['PREMIUM'];
+
+    return userPermissions.includes(feature) || false;
   }
 
   async createPaymentIntent(userId: string, data: { plan: string; amount: number; currency: string }) {
@@ -144,7 +197,7 @@ export class SubscriptionService {
 
       return { clientSecret: paymentIntent.client_secret };
     } catch (error: any) {
-      console.error(' Error al crear PaymentIntent de Stripe:', error);
+      console.error('❌ Error al crear PaymentIntent de Stripe:', error);
       throw new InternalServerErrorException(
         error.message || 'Error al procesar el pago con Stripe'
       );

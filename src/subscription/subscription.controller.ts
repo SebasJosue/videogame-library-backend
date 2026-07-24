@@ -32,13 +32,11 @@ export class SubscriptionController {
     }
   }
 
-  // ✅ NUEVO: Obtener todos los planes (público y admin)
   @Get('plans')
   async getAllPlans() {
     return this.subscriptionService.getAllPlans();
   }
 
-  // ✅ NUEVO: Crear plan (solo admin)
   @Post('plans')
   @Roles('ADMIN')
   async createPlan(@Body() data: any) {
@@ -52,32 +50,46 @@ export class SubscriptionController {
     }
   }
 
-  // ✅ NUEVO: Actualizar plan (solo admin)
+  // ✅ SIN VALIDACIONES - AHORA TODOS LOS PLANES SON EDITABLES
   @Put('plans/:id')
   @Roles('ADMIN')
   async updatePlan(@Param('id') id: string, @Body() data: any) {
-    return this.subscriptionService.updatePlan(id, data);
+    try {
+      return await this.subscriptionService.updatePlan(id, data);
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Error al actualizar el plan',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  // ✅ NUEVO: Eliminar plan (solo admin)
   @Delete('plans/:id')
   @Roles('ADMIN')
   async deletePlan(@Param('id') id: string) {
-    return this.subscriptionService.deletePlan(id);
+    try {
+      return await this.subscriptionService.deletePlan(id);
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Error al eliminar el plan',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Post('upgrade/:plan')
-  async upgradePlan(
-    @Request() req,
-    @Param('plan') plan: 'BASIC' | 'PREMIUM' | 'VIP',
-  ) {
-    const validPlans = ['BASIC', 'PREMIUM', 'VIP'];
-    if (!validPlans.includes(plan)) {
-      throw new HttpException('Plan no válido', HttpStatus.BAD_REQUEST);
-    }
-
+  async upgradePlan(@Request() req, @Param('plan') plan: string) {
     try {
-      return await this.subscriptionService.upgradePlan(req.user.id, plan);
+      const availablePlans = await this.subscriptionService.getAllPlans();
+      const planExists = availablePlans.some(
+        (p: any) => p.name.toLowerCase() === plan.toLowerCase()
+      );
+
+      if (!planExists) {
+        throw new HttpException('Plan no válido o no existe', HttpStatus.BAD_REQUEST);
+      }
+
+      return await this.subscriptionService.upgradePlan(req.user.id, plan.toUpperCase());
     } catch (error: any) {
       throw new HttpException(
         error.message || 'Error al actualizar el plan',
@@ -119,11 +131,6 @@ export class SubscriptionController {
         'El monto debe ser un número mayor a 0',
         HttpStatus.BAD_REQUEST,
       );
-    }
-
-    const validPlans = ['BASIC', 'PREMIUM', 'VIP'];
-    if (!validPlans.includes(body.plan.toUpperCase())) {
-      throw new HttpException('Plan no válido', HttpStatus.BAD_REQUEST);
     }
 
     try {
